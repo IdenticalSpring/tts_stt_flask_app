@@ -1,0 +1,8 @@
+flask>=3.0
+transformers>=4.40
+torch>=2.1           # cần cho Wav2Vec2
+torchaudio>=2.1      # transformers + wav2vec sẽ tự dùng
+kokoro>=0.2.4        # thư viện TTS
+soundfile>=0.12
+numpy>=1.24
+pyyaml>=5.4
