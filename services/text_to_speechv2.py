@@ -1,26 +1,44 @@
 """
-text_to_speech.py
-Sinh giọng nói từ văn bản với Kokoro (hexgrad/Kokoro-82M)
+tts_play_cli.py
+Nhập text → sinh giọng Kokoro → phát bằng winsound → xoá file tạm.
+Chạy được trên Windows mà không cần cài trình biên dịch C++.
 """
-
+import io, os, tempfile, numpy as np, soundfile as sf, torch, winsound
 from kokoro import KPipeline
-import numpy as np, soundfile as sf, os, uuid
 
-_REPO  = "hexgrad/Kokoro-82M"   # gọi thẳng repo gốc để khỏi lằng nhằng
-_VOICE = "af_bella"             # đổi sang voice tồn tại trong repo
+pipe  = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+VOICE = "af_bella"             # voice có sẵn trong repo
 
-pipe = KPipeline(lang_code="a", repo_id=_REPO)
+def synth_bytes(text: str) -> bytes:
+    """ Sinh WAV bytes (PCM 24 kHz) – tương thích mọi phiên bản Kokoro """
+    _, _, audio = next(pipe(text, voice=VOICE))
+    if isinstance(audio, dict):               # API cũ
+        arr = np.asarray(audio["array"], dtype="float32")
+        sr  = int(audio["sampling_rate"])
+    elif isinstance(audio, torch.Tensor):     # API mới
+        arr = audio.cpu().numpy().astype("float32")
+        sr  = 24_000
+    else:
+        raise TypeError("audio phải là dict hoặc Tensor")
 
-def synthesize(text: str, out_dir="tts_outputs") -> str:
-    os.makedirs(out_dir, exist_ok=True)
-    _, _, audio = next(pipe(text, voice=_VOICE))   # lấy 1 kết quả
-    arr  = np.asarray(audio["array"]).astype("float32")
-    if arr.ndim == 1:                               # bảo đảm (N,1)
-        arr = arr.reshape(-1, 1)
-    path = os.path.join(out_dir, f"{uuid.uuid4().hex}.wav")
-    sf.write(path, arr, audio["sampling_rate"])
-    return path
+    if arr.ndim == 1: arr = arr.reshape(-1, 1)
+    buf = io.BytesIO(); sf.write(buf, arr, sr, format="WAV")
+    return buf.getvalue()
 
-# CLI test
+def play_once(text: str):
+    wav_bytes = synth_bytes(text)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(wav_bytes)
+        wav_path = tmp.name
+    winsound.PlaySound(wav_path, winsound.SND_FILENAME)
+    os.remove(wav_path)
+
 if __name__ == "__main__":
-    print("✅ File tạo:", synthesize("i am gay"))
+    try:
+        while True:
+            line = input("Nhập câu (Enter trống để thoát): ").strip()
+            if not line:
+                break
+            play_once(line)
+    except KeyboardInterrupt:
+        pass

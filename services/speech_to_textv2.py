@@ -1,27 +1,44 @@
 """
-speech_to_text.py
-Chuyển file WAV thành văn bản bằng Wav2Vec2-large-960h
+speech_to_text_record_mem.py
+Ghi âm micro (Enter để dừng) ➜ chuyển thẳng sang text (không ghi đĩa)
 """
 
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
-import torch, soundfile as sf, numpy as np, os, tempfile, uuid
+import threading, numpy as np, sounddevice as sd, torch
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
-_MODEL = "facebook/wav2vec2-large-960h"
-processor = Wav2Vec2Processor.from_pretrained(_MODEL)
-model      = Wav2Vec2ForCTC. from_pretrained(_MODEL)
+SAMPLE_RATE = 16_000
+MODEL_NAME  = "facebook/wav2vec2-large-960h"
 
-def transcribe_file(wav_path: str) -> str:
-    speech, sr = sf.read(wav_path)
-    if speech.ndim > 1:                       # stereo → mono
-        speech = speech.mean(axis=1)
-    inputs = processor(speech, sampling_rate=sr, return_tensors="pt", padding=True)
-    with torch.no_grad():
-        logits = model(**inputs).logits
-    ids   = torch.argmax(logits, dim=-1)
-    text  = processor.batch_decode(ids)[0]
-    return text.strip()
+processor = Wav2Vec2Processor.from_pretrained(MODEL_NAME)
+model     = Wav2Vec2ForCTC   .from_pretrained(MODEL_NAME)
 
-# CLI test
-if __name__ == "__main__":
-    demo = "demo.wav"          # đổi tên file test
-    print("📢", transcribe_file(demo) if os.path.exists(demo) else "⚠️ Không thấy demo.wav")
+# ---------- Ghi âm không giới hạn ----------
+chunks, recording = [], True
+
+def callback(indata, frames, time, status):
+    chunks.append(indata.copy())
+
+def wait_enter():
+    global recording
+    input("Đang ghi âm… nhấn ENTER để dừng\n")
+    recording = False
+
+threading.Thread(target=wait_enter, daemon=True).start()
+
+with sd.InputStream(channels=1, samplerate=SAMPLE_RATE, dtype="float32",
+                    callback=callback):
+    while recording:
+        sd.sleep(100)
+
+audio = np.concatenate(chunks, axis=0).flatten()   # float32 1-D
+print(f"Đã thu {len(audio)/SAMPLE_RATE:.1f}s, bắt đầu nhận dạng…")
+
+# ---------- STT trực tiếp từ mảng numpy ----------
+inputs = processor(audio, sampling_rate=SAMPLE_RATE,
+                   return_tensors="pt", padding=True)
+
+with torch.no_grad():
+    pred = model(**inputs).logits.argmax(dim=-1)
+
+text = processor.decode(pred[0])
+print("Kết quả STT:", text)
