@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎙 STT & TTS Demo</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    input[type="text"] {
+      padding: 6px;
+      margin-right: 8px;
+      width: 300px;
+    }
+    button {
+      padding: 6px 12px;
+      margin-top: 10px;
+    }
+    hr {
+      margin: 2rem 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎤 Speech to Text (STT)</h2>
+
+  <form action="/start-record" method="post" style="display:inline;">
+    <button type="submit">Bắt đầu ghi âm</button>
+  </form>
+  <form action="/stop-record" method="post" style="display:inline;">
+    <button type="submit">Dừng ghi & Nhận dạng</button>
+  </form>
+
+  {% if text_result %}
+    <h4>Kết quả nhận dạng:</h4>
+    <p>{{ text_result }}</p>
+  {% endif %}
+
+  <hr>
+
+  <h2>🗣️ Text to Speech (TTS)</h2>
+  <form action="/tts" method="post">
+    <input type="text" name="text" placeholder="Nhập văn bản..." required>
+    <button type="submit">Chuyển thành giọng nói</button>
+  </form>
+
+  {% if audio_ready %}
+    <h4>🔊 Nghe kết quả:</h4>
+    <audio controls autoplay>
+      <source src="{{ url_for('audio') }}" type="audio/wav">
+      Trình duyệt không hỗ trợ phát audio.
+    </audio>
+  {% endif %}
+
+  <p><i>Lưu ý: Âm thanh sinh ra sẽ phát trực tiếp mà không tải về.</i></p>
+</body>
+</html>
