@@ -4,7 +4,7 @@ import sounddevice as sd
 import torch
 from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
-SAMPLE_RATE = 16_000
+SAMPLE_RATE = 16000
 MODEL_NAME  = "facebook/wav2vec2-large-960h"
 
 processor = Wav2Vec2Processor.from_pretrained(MODEL_NAME)
@@ -35,17 +35,9 @@ def stop_and_transcribe() -> str:
     audio = np.concatenate(_chunks, axis=0).flatten()
     print(f"🎧 Đã thu {len(audio) / SAMPLE_RATE:.1f}s, bắt đầu nhận dạng...")
 
-    inputs = processor(audio, sampling_rate=SAMPLE_RATE,
-                       return_tensors="pt", padding=True)
+    inputs = processor(audio, sampling_rate=SAMPLE_RATE, return_tensors="pt", padding=True)
     with torch.no_grad():
         pred = model(**inputs).logits.argmax(dim=-1)
 
     text = processor.decode(pred[0])
     return text.strip()
-
-# --- CLI test ---
-if __name__ == "__main__":
-    start_recording()
-    input("🎤 Đang ghi âm… nhấn ENTER để dừng\n")
-    result = stop_and_transcribe()
-    print("📄 Kết quả STT:", result)
