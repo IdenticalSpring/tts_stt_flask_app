@@ -16,12 +16,38 @@
     <form method="POST" action="/stop-record">
         <button type="submit">🛑 Dừng ghi âm & Nhận dạng</button>
     </form>
-<!-- TTS: Nhập text -->
-<h2>🔊 Text-to-Speech (TTS)</h2>
-<form method="POST" action="/tts">
-    <input type="text" name="text" placeholder="Nhập văn bản để đọc" required>
-    <button type="submit">▶️ Chuyển thành giọng nói</button>
-</form>
 
+    <!-- TTS: Nhập text -->
+    <h2>🔊 Text-to-Speech (TTS)</h2>
+    <form method="POST" action="/tts">
+        <input type="text" name="text" placeholder="Nhập văn bản để đọc" required>
+
+        <!-- Dropdown chọn giọng -->
+        <label for="voice-select">Chọn giọng:</label>
+        <select name="voice" id="voice-select">
+            <option value="af_bella">Đang tải danh sách giọng...</option>
+        </select>
+
+        <button type="submit">▶️ Chuyển thành giọng nói</button>
+    </form>
+
+    <!-- JS fetch danh sách voice -->
+    <script>
+    fetch("/voices")
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById("voice-select");
+            select.innerHTML = "";  // Xóa placeholder cũ
+            data.voices.forEach(v => {
+                const option = document.createElement("option");
+                option.value = v;
+                option.textContent = v;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => {
+            console.error("Lỗi tải danh sách voice:", err);
+        });
+    </script>
 </body>
 </html>

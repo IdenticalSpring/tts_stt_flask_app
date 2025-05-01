@@ -1,6 +1,7 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for
+from flask import Flask, request, render_template, send_file, redirect, url_for, jsonify
 from services.speech_to_textv2 import start_recording, stop_and_transcribe
 from services.task_manager import add_task
+from services.text_to_speechv2 import synth_bytes, list_voices  # ✅ sửa chỗ này
 import uuid
 import os
 import io
@@ -39,7 +40,6 @@ def result(task_id):
 
     return render_template("result.html", text_result=text_result)
 
-from services.text_to_speechv2 import synth_bytes  # nhớ import!
 
 last_audio = None  # Global lưu WAV tạm thời khi TTS
 
@@ -47,7 +47,8 @@ last_audio = None  # Global lưu WAV tạm thời khi TTS
 def tts():
     global last_audio
     text = request.form["text"]
-    last_audio = synth_bytes(text)
+    voice = request.form.get("voice", "af_bella")  # ✅ đọc voice từ form
+    last_audio = synth_bytes(text, voice)          # ✅ truyền voice vào synth
     return redirect(url_for('tts_result'))
 
 @app.route("/tts-result")
@@ -62,6 +63,10 @@ def tts_result():
         )
     else:
         return "No TTS audio generated yet", 404
+
+@app.route("/voices")
+def voices():
+    return jsonify(voices=list_voices())  # ✅ trả list voice dưới dạng JSON
 
 if __name__ == "__main__":
     os.makedirs("temp", exist_ok=True)
