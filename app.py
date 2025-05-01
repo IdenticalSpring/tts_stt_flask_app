@@ -1,10 +1,11 @@
-from flask import Flask, request, render_template, send_file, redirect, url_for
+from flask import Flask, request, render_template, send_file, redirect, url_for, jsonify
 from services.speech_to_textv2 import start_recording, stop_and_transcribe
 from services.task_manager import add_task
+from services.text_to_speechv2 import synth_bytes, list_voices  # ✅ sửa chỗ này
 import uuid
 import os
 import io
-
+import base64
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
@@ -39,16 +40,32 @@ def result(task_id):
 
     return render_template("result.html", text_result=text_result)
 
-from services.text_to_speechv2 import synth_bytes  # nhớ import!
 
 last_audio = None  # Global lưu WAV tạm thời khi TTS
 
+
+
 @app.route("/tts", methods=["POST"])
 def tts():
-    global last_audio
-    text = request.form["text"]
-    last_audio = synth_bytes(text)
-    return redirect(url_for('tts_result'))
+    text = request.form.get("text") or request.json.get("text")
+    voice = request.form.get("voice") or request.json.get("voice", "af_bella")
+
+    if not text:
+        return jsonify({"status": "error", "message": "Missing text input"}), 400
+
+    try:
+        wav_bytes = synth_bytes(text, voice)
+        base64_audio = base64.b64encode(wav_bytes).decode("utf-8")
+
+        return jsonify({
+            "status": "success",
+            "audioData": base64_audio,
+            "voiceID": voice
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/tts-result")
 def tts_result():
@@ -62,6 +79,10 @@ def tts_result():
         )
     else:
         return "No TTS audio generated yet", 404
+
+@app.route("/voices")
+def voices():
+    return jsonify(voices=list_voices())  # ✅ trả list voice dưới dạng JSON
 
 if __name__ == "__main__":
     os.makedirs("temp", exist_ok=True)

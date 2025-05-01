@@ -16,12 +16,57 @@
     <form method="POST" action="/stop-record">
         <button type="submit">🛑 Dừng ghi âm & Nhận dạng</button>
     </form>
-<!-- TTS: Nhập text -->
-<h2>🔊 Text-to-Speech (TTS)</h2>
-<form method="POST" action="/tts">
-    <input type="text" name="text" placeholder="Nhập văn bản để đọc" required>
-    <button type="submit">▶️ Chuyển thành giọng nói</button>
-</form>
 
+    <!-- TTS: Nhập text -->
+    <h2>🔊 Text-to-Speech (TTS)</h2>
+    <form method="POST" action="/tts">
+        <input type="text" name="text" placeholder="Nhập văn bản để đọc" required>
+
+        <!-- Dropdown chọn giọng -->
+        <label for="voice-select">Chọn giọng:</label>
+        <select name="voice" id="voice-select">
+            <option value="af_bella">Đang tải danh sách giọng...</option>
+        </select>
+
+        <button type="submit">▶️ Chuyển thành giọng nói</button>
+    </form>
+
+    <!-- JS fetch danh sách voice -->
+    <script>
+    fetch("/voices")
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById("voice-select");
+            select.innerHTML = "";  // Xóa placeholder cũ
+            data.voices.forEach(v => {
+                const option = document.createElement("option");
+                option.value = v;
+                option.textContent = v.split("_")[1];
+                select.appendChild(option);
+            });
+        })
+        .catch(err => {
+            console.error("Lỗi tải danh sách voice:", err);
+        });
+        fetch("/tts", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ text: "hello world", voice: "af_bella" })
+})
+  .then((res) => res.json())
+  .then((data) => {
+    if (data.status === "success") {
+      const blob = new Blob([Uint8Array.from(atob(data.audioData), c => c.charCodeAt(0))], {
+        type: "audio/wav",
+      });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    } else {
+      console.error("Lỗi TTS:", data.message);
+    }
+  });
+
+    </script>
 </body>
 </html>
