@@ -5,7 +5,7 @@ from services.text_to_speechv2 import synth_bytes, list_voices  # ✅ sửa ch�
 import uuid
 import os
 import io
-
+import base64
 app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
@@ -43,13 +43,37 @@ def result(task_id):
 
 last_audio = None  # Global lưu WAV tạm thời khi TTS
 
+
+
 @app.route("/tts", methods=["POST"])
 def tts():
+
+    text = request.form.get("text") or request.json.get("text")
+    voice = request.form.get("voice") or request.json.get("voice", "af_bella")
+
+    if not text:
+        return jsonify({"status": "error", "message": "Missing text input"}), 400
+
+    try:
+        wav_bytes = synth_bytes(text, voice)
+        base64_audio = base64.b64encode(wav_bytes).decode("utf-8")
+
+        return jsonify({
+            "status": "success",
+            "audioData": base64_audio,
+            "voiceID": voice
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+=======
     global last_audio
     text = request.form["text"]
     voice = request.form.get("voice", "af_bella")  # ✅ đọc voice từ form
     last_audio = synth_bytes(text, voice)          # ✅ truyền voice vào synth
     return redirect(url_for('tts_result'))
+
 
 @app.route("/tts-result")
 def tts_result():

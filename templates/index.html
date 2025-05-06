@@ -41,13 +41,37 @@
             data.voices.forEach(v => {
                 const option = document.createElement("option");
                 option.value = v;
+
+                option.textContent = v.split("_")[1];
                 option.textContent = v;
+
                 select.appendChild(option);
             });
         })
         .catch(err => {
             console.error("Lỗi tải danh sách voice:", err);
         });
+
+        fetch("/tts", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ text: "hello world", voice: "af_bella" })
+})
+  .then((res) => res.json())
+  .then((data) => {
+    if (data.status === "success") {
+      const blob = new Blob([Uint8Array.from(atob(data.audioData), c => c.charCodeAt(0))], {
+        type: "audio/wav",
+      });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.play();
+    } else {
+      console.error("Lỗi TTS:", data.message);
+    }
+  });
+
+
     </script>
 </body>
 </html>

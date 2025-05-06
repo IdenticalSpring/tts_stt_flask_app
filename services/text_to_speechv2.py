@@ -7,6 +7,32 @@ import io, os, tempfile, numpy as np, soundfile as sf, torch, winsound
 from kokoro import KPipeline
 
 pipe  = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+
+pipe.load_voice("af_heart")
+pipe.load_voice("af_alloy")
+pipe.load_voice("af_aoede")
+pipe.load_voice("af_jessica")
+pipe.load_voice("af_kore")
+pipe.load_voice("af_nicole")
+pipe.load_voice("af_nova")
+pipe.load_voice("af_river")
+pipe.load_voice("af_sarah")
+pipe.load_voice("af_sky")
+pipe.load_voice("am_adam")
+pipe.load_voice("am_echo")
+pipe.load_voice("am_eric")
+pipe.load_voice("am_fenrir")
+pipe.load_voice("am_liam")
+pipe.load_voice("am_michael")
+pipe.load_voice("am_onyx")
+pipe.load_voice("am_puck")
+pipe.load_voice("am_santa")
+DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
+
+
+def list_voices():
+    return list(pipe.voices.keys())
+=======
 DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
 
 
@@ -14,10 +40,11 @@ def list_voices() -> list[str]:
     return pipe.available_voices()
 
 
+
 def synth_bytes(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     """ Sinh WAV bytes (PCM 24 kHz) – tương thích mọi phiên bản Kokoro """
     _, _, audio = next(pipe(text, voice=voice))
-    
+
     if isinstance(audio, dict):               # API cũ
         arr = np.asarray(audio["array"], dtype="float32")
         sr  = int(audio["sampling_rate"])
