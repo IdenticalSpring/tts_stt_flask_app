@@ -7,6 +7,7 @@ import io, os, tempfile, numpy as np, soundfile as sf, torch, winsound
 from kokoro import KPipeline
 
 pipe  = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+
 pipe.load_voice("af_heart")
 pipe.load_voice("af_alloy")
 pipe.load_voice("af_aoede")
@@ -31,11 +32,19 @@ DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
 
 def list_voices():
     return list(pipe.voices.keys())
+=======
+DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
+
+
+def list_voices() -> list[str]:
+    return pipe.available_voices()
+
 
 
 def synth_bytes(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     """ Sinh WAV bytes (PCM 24 kHz) – tương thích mọi phiên bản Kokoro """
     _, _, audio = next(pipe(text, voice=voice))
+
     if isinstance(audio, dict):               # API cũ
         arr = np.asarray(audio["array"], dtype="float32")
         sr  = int(audio["sampling_rate"])

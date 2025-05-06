@@ -47,6 +47,7 @@ last_audio = None  # Global lưu WAV tạm thời khi TTS
 
 @app.route("/tts", methods=["POST"])
 def tts():
+
     text = request.form.get("text") or request.json.get("text")
     voice = request.form.get("voice") or request.json.get("voice", "af_bella")
 
@@ -65,6 +66,13 @@ def tts():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+=======
+    global last_audio
+    text = request.form["text"]
+    voice = request.form.get("voice", "af_bella")  # ✅ đọc voice từ form
+    last_audio = synth_bytes(text, voice)          # ✅ truyền voice vào synth
+    return redirect(url_for('tts_result'))
 
 
 @app.route("/tts-result")

@@ -41,13 +41,17 @@
             data.voices.forEach(v => {
                 const option = document.createElement("option");
                 option.value = v;
+
                 option.textContent = v.split("_")[1];
+                option.textContent = v;
+
                 select.appendChild(option);
             });
         })
         .catch(err => {
             console.error("Lỗi tải danh sách voice:", err);
         });
+
         fetch("/tts", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -66,6 +70,7 @@
       console.error("Lỗi TTS:", data.message);
     }
   });
+
 
     </script>
 </body>
