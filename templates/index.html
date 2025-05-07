@@ -2,49 +2,46 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Voice to Text</title>
+    <title>Kokoro TTS Demo</title>
 </head>
-<body>
+<body style="font-family: sans-serif; background-color: #f2f2f2; padding: 30px; color: #333;">
     <h1>🎤 Voice Recorder</h1>
 
     <!-- Start Record -->
-    <form method="POST" action="/start-record">
+    <form method="POST" action="/start-record" style="margin-bottom: 10px;">
         <button type="submit">🎙️ Bắt đầu ghi âm</button>
     </form>
 
     <!-- Stop Record -->
-    <form method="POST" action="/stop-record">
+    <form method="POST" action="/stop-record" style="margin-bottom: 30px;">
         <button type="submit">🛑 Dừng ghi âm & Nhận dạng</button>
     </form>
 
-    <!-- TTS: Nhập text -->
     <h2>🔊 Text-to-Speech (TTS)</h2>
-    <form method="POST" action="/tts">
-        <input type="text" name="text" placeholder="Nhập văn bản để đọc" required>
+    <form method="POST" action="/tts" id="ttsForm">
+        <textarea name="text" id="textInput" rows="4" cols="60" placeholder="Nhập văn bản để chuyển giọng" required></textarea><br><br>
 
-        <!-- Dropdown chọn giọng -->
         <label for="voice-select">Chọn giọng:</label>
         <select name="voice" id="voice-select">
-            <option value="af_bella">Đang tải danh sách giọng...</option>
+            <option value="af_bella">Đang tải giọng...</option>
         </select>
 
-        <button type="submit">▶️ Chuyển thành giọng nói</button>
+        <button type="submit" id="ttsBtn">▶️ Chuyển thành giọng nói</button>
     </form>
 
-    <!-- JS fetch danh sách voice -->
+    <audio id="ttsPlayer" controls style="margin-top: 20px; display: none;"></audio>
+
     <script>
+    // Tải danh sách giọng từ server
     fetch("/voices")
         .then(res => res.json())
         .then(data => {
             const select = document.getElementById("voice-select");
-            select.innerHTML = "";  // Xóa placeholder cũ
+            select.innerHTML = "";
             data.voices.forEach(v => {
                 const option = document.createElement("option");
                 option.value = v;
-
-                option.textContent = v.split("_")[1];
                 option.textContent = v;
-
                 select.appendChild(option);
             });
         })
@@ -52,26 +49,43 @@
             console.error("Lỗi tải danh sách voice:", err);
         });
 
-        fetch("/tts", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ text: "hello world", voice: "af_bella" })
-})
-  .then((res) => res.json())
-  .then((data) => {
-    if (data.status === "success") {
-      const blob = new Blob([Uint8Array.from(atob(data.audioData), c => c.charCodeAt(0))], {
-        type: "audio/wav",
-      });
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audio.play();
-    } else {
-      console.error("Lỗi TTS:", data.message);
-    }
-  });
+    // Xử lý TTS form
+    document.getElementById("ttsForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
 
+        const text = document.getElementById("textInput").value;
+        const voice = document.getElementById("voice-select").value;
+        const btn = document.getElementById("ttsBtn");
+        const audioPlayer = document.getElementById("ttsPlayer");
 
+        btn.disabled = true;
+        btn.textContent = "⏳ Đang chuyển...";
+
+        try {
+            const res = await fetch("/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text, voice })
+            });
+
+            if (!res.ok) {
+                throw new Error("Lỗi khi gọi TTS");
+            }
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+
+            audioPlayer.src = url;
+            audioPlayer.style.display = "block";
+            audioPlayer.play();
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "▶️ Chuyển thành giọng nói";
+        }
+    });
     </script>
 </body>
 </html>

@@ -1,33 +1,43 @@
 from flask import Flask, request, render_template, send_file, redirect, url_for, jsonify
 from services.speech_to_textv2 import start_recording, stop_and_transcribe
 from services.task_manager import add_task
-from services.text_to_speechv2 import synth_bytes, list_voices  # ✅ sửa chỗ này
+from services.text_to_speechv2 import synth_bytes, list_voices
+
 import uuid
 import os
 import io
-import base64
+
 app = Flask(__name__)
 
+# === Trang chủ ===
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
+
+# === Bắt đầu ghi âm ===
 @app.route("/start-record", methods=["POST"])
 def start():
     start_recording()
     return redirect(url_for('index'))
 
+
+# === Hàm phụ để lưu text từ STT ===
 def transcribe_and_store_to_file(task_id):
-    text_result = stop_and_transcribe()  # 🔥 CHỈ 1 giá trị trả về
+    text_result = stop_and_transcribe()
     with open(f"temp/text_{task_id}.txt", "w", encoding="utf-8") as f:
         f.write(text_result)
 
+
+# === Dừng ghi âm và xử lý text ===
 @app.route("/stop-record", methods=["POST"])
 def stop():
     task_id = str(uuid.uuid4())
     add_task(transcribe_and_store_to_file, task_id)
     return redirect(url_for('result', task_id=task_id))
 
+
+# === Trả kết quả STT ===
 @app.route("/result/<task_id>")
 def result(task_id):
     text_path = f"temp/text_{task_id}.txt"
@@ -41,57 +51,44 @@ def result(task_id):
     return render_template("result.html", text_result=text_result)
 
 
-last_audio = None  # Global lưu WAV tạm thời khi TTS
-
-
-
+# === TTS: Nhận văn bản, trả về .wav (stream) ===
 @app.route("/tts", methods=["POST"])
 def tts():
-
-    text = request.form.get("text") or request.json.get("text")
-    voice = request.form.get("voice") or request.json.get("voice", "af_bella")
-
-    if not text:
-        return jsonify({"status": "error", "message": "Missing text input"}), 400
-
     try:
+        if request.is_json:
+            data = request.get_json()
+            text = data.get("text")
+            voice = data.get("voice", "af_bella")
+        else:
+            text = request.form.get("text")
+            voice = request.form.get("voice", "af_bella")
+
+        if not text:
+            return jsonify({"status": "error", "message": "Missing text input"}), 400
+
         wav_bytes = synth_bytes(text, voice)
-        base64_audio = base64.b64encode(wav_bytes).decode("utf-8")
 
-        return jsonify({
-            "status": "success",
-            "audioData": base64_audio,
-            "voiceID": voice
-        })
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-=======
-    global last_audio
-    text = request.form["text"]
-    voice = request.form.get("voice", "af_bella")  # ✅ đọc voice từ form
-    last_audio = synth_bytes(text, voice)          # ✅ truyền voice vào synth
-    return redirect(url_for('tts_result'))
-
-
-@app.route("/tts-result")
-def tts_result():
-    global last_audio
-    if last_audio:
         return send_file(
-            io.BytesIO(last_audio),
+            io.BytesIO(wav_bytes),
             mimetype="audio/wav",
             as_attachment=False,
             download_name="tts_output.wav"
         )
-    else:
-        return "No TTS audio generated yet", 404
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+# === Trả danh sách voice ===
 @app.route("/voices")
 def voices():
-    return jsonify(voices=list_voices())  # ✅ trả list voice dưới dạng JSON
+    return jsonify(voices=list_voices())
 
+
+# === Khởi tạo thư mục tạm và chạy ===
 if __name__ == "__main__":
     os.makedirs("temp", exist_ok=True)
     app.run(debug=True)

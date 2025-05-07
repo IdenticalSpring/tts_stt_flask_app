@@ -1,79 +1,64 @@
-"""
-tts_play_cli.py
-Nhập text → sinh giọng Kokoro → phát bằng winsound → xoá file tạm.
-Chạy được trên Windows mà không cần cài trình biên dịch C++.
-"""
-import io, os, tempfile, numpy as np, soundfile as sf, torch, winsound
+import io
+import re
+import numpy as np
+import soundfile as sf
+import torch
 from kokoro import KPipeline
 
-pipe  = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
+# Khởi tạo pipeline Kokoro
+pipe = KPipeline(lang_code="a", repo_id="hexgrad/Kokoro-82M")
 
-pipe.load_voice("af_heart")
-pipe.load_voice("af_alloy")
-pipe.load_voice("af_aoede")
-pipe.load_voice("af_jessica")
-pipe.load_voice("af_kore")
-pipe.load_voice("af_nicole")
-pipe.load_voice("af_nova")
-pipe.load_voice("af_river")
-pipe.load_voice("af_sarah")
-pipe.load_voice("af_sky")
-pipe.load_voice("am_adam")
-pipe.load_voice("am_echo")
-pipe.load_voice("am_eric")
-pipe.load_voice("am_fenrir")
-pipe.load_voice("am_liam")
-pipe.load_voice("am_michael")
-pipe.load_voice("am_onyx")
-pipe.load_voice("am_puck")
-pipe.load_voice("am_santa")
-DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
+# Load tất cả voice sẵn có
+voice_list = [
+    "af_heart", "af_alloy", "af_aoede", "af_jessica", "af_kore", "af_nicole", 
+    "af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", 
+    "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "am_santa"
+]
 
+for v in voice_list:
+    try:
+        pipe.load_voice(v)
+    except Exception as e:
+        print(f"Không load được voice: {v} – {e}")
 
-def list_voices():
-    return list(pipe.voices.keys())
-=======
-DEFAULT_VOICE = "af_bella"  # mặc định nếu không truyền voice
-
+DEFAULT_VOICE = "af_bella"
 
 def list_voices() -> list[str]:
-    return pipe.available_voices()
+    return list(pipe.voices.keys())
 
+def split_text(text: str) -> list[str]:
+    # Cắt văn bản dài thành các câu nhỏ dựa vào dấu câu
+    return [s.strip() for s in re.split(r'[.!?;]', text) if s.strip()]
 
+def synth_with_pause(text: str, voice: str = DEFAULT_VOICE, pause_ms: int = 400) -> bytes:
+    sentences = split_text(text)
+    audios = []
+    silence = np.zeros(int(24000 * (pause_ms / 1000.0)), dtype=np.float32)
 
-def synth_bytes(text: str, voice: str = DEFAULT_VOICE) -> bytes:
-    """ Sinh WAV bytes (PCM 24 kHz) – tương thích mọi phiên bản Kokoro """
-    _, _, audio = next(pipe(text, voice=voice))
+    for sent in sentences:
+        try:
+            _, _, audio = next(pipe(sent, voice=voice))
+        except Exception as e:
+            print(f"Lỗi synth câu: {sent} – {e}")
+            continue
 
-    if isinstance(audio, dict):               # API cũ
-        arr = np.asarray(audio["array"], dtype="float32")
-        sr  = int(audio["sampling_rate"])
-    elif isinstance(audio, torch.Tensor):     # API mới
-        arr = audio.cpu().numpy().astype("float32")
-        sr  = 24_000
-    else:
-        raise TypeError("audio phải là dict hoặc Tensor")
+        if isinstance(audio, dict):
+            arr = np.asarray(audio["array"], dtype="float32")
+        elif isinstance(audio, torch.Tensor):
+            arr = audio.cpu().numpy().astype("float32")
+        else:
+            raise TypeError("audio phải là dict hoặc Tensor")
 
-    if arr.ndim == 1: arr = arr.reshape(-1, 1)
-    buf = io.BytesIO(); sf.write(buf, arr, sr, format="WAV")
+        audios.append(arr)
+        audios.append(silence)
+
+    if not audios:
+        raise RuntimeError("Không synth được bất kỳ câu nào.")
+
+    full_audio = np.concatenate(audios)
+    buf = io.BytesIO()
+    sf.write(buf, full_audio.reshape(-1, 1), 24000, format="WAV")
     return buf.getvalue()
 
-
-def play_once(text: str, voice: str = DEFAULT_VOICE):
-    wav_bytes = synth_bytes(text, voice)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-        tmp.write(wav_bytes)
-        wav_path = tmp.name
-    winsound.PlaySound(wav_path, winsound.SND_FILENAME)
-    os.remove(wav_path)
-
-
-if __name__ == "__main__":
-    try:
-        while True:
-            line = input("Nhập câu (Enter trống để thoát): ").strip()
-            if not line:
-                break
-            play_once(line)
-    except KeyboardInterrupt:
-        pass
+# === ALIAS để Flask import bình thường ===
+synth_bytes = synth_with_pause
